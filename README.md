@@ -1,1 +1,1 @@
-# hexaco
+# HEXACO
