@@ -1,0 +1,23 @@
+{
+  "name": "hexaco",
+  "version": "1.0.0",
+  "description": "책 `H 팩터의 심리학` 중 단축형 HEXACO 성격 검사지",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heycalmdown/hexaco.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/heycalmdown/hexaco/issues"
+  },
+  "homepage": "https://github.com/heycalmdown/hexaco#readme",
+  "dependencies": {
+    "@types/node": "^12.7.2",
+    "aws-sdk": "^2.517.0"
+  }
+}
