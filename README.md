@@ -30,3 +30,9 @@ $ node . 2
 정서성 평균보다 매우 높음
 정직-겸손성 평균보다 매우 높음
 ```
+
+# Todos
+
+* [ ] AWS Lambda support
+* [ ] Racket support
+
