@@ -5,8 +5,8 @@ AWS.config.loadFromPath(__dirname + '/../config/awsconfig.json');
 
 const s3 = new AWS.S3();
 
-const MINE = fs.readFileSync('../md/mine.md', 'utf-8').trim().split('\n');
-const THEIRS = fs.readFileSync('../md/theirs.md', 'utf-8').trim().split('\n');
+const MINE = fs.readFileSync(__dirname + '/../md/mine.md', 'utf-8').trim().split('\n');
+const THEIRS = fs.readFileSync(__dirname + '/../md/theirs.md', 'utf-8').trim().split('\n');
 
 const FACTORS = ['개방성', '성실성', '원만성', '외향성', '정서성', '정직-겸손성'];
 const FLIP = [

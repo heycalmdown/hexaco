@@ -1,4 +1,6 @@
 config/
+up.json
+dist
 
 # Logs
 logs
