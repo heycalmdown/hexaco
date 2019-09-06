@@ -33,6 +33,9 @@ $ node . 2
 
 # Todos
 
-* [ ] AWS Lambda support
+* [x] AWS Lambda support
 * [ ] Racket support
+* [ ] Crystal support
+* [ ] Go support
+
 
