@@ -106,7 +106,7 @@ async function onTypeCallback(ctx: MyContext, type: number) {
 }
 
 async function failback(ctx: MyContext) {
-  await ctx.answerCbQuery('failback');
+  // await ctx.answerCbQuery('failback');
   return ctx.editMessageText('ㅇㅇ 다 없던 걸로 합니다\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
 }
 
@@ -132,10 +132,10 @@ async function onQuestionCallback(ctx: MyContext, q: number, score: number, send
 
   if (1 <= score && score <= 5) {
     await progress.addAnswer(score);
-    await ctx.answerCbQuery();
+    // await ctx.answerCbQuery();
     return sendQuestion(ctx, progress);
   } else if (score === 0) {
-    await ctx.answerCbQuery('ㅇㅇ');
+    // await ctx.answerCbQuery('ㅇㅇ');
     return ctx.editMessageText('ㅇㅇ 나중에 계속...\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
   }
   await progress.cancelProgress();
@@ -188,7 +188,7 @@ class MyContext {
 
 async function onStartCallback(ctx: MyContext, yesno: number) {
   if (yesno === 2) {
-    await ctx.answerCbQuery('ㅇㅇ');
+    // await ctx.answerCbQuery('ㅇㅇ');
     return ctx.editMessageText('ㅇㅇ 나중에 계속...\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
   }
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
