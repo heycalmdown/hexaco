@@ -44,7 +44,7 @@ function makeCallbackData(text: string, senderId: string, q: number, score: numb
   };
 }
 
-function makeScoreButton(type: number, q: number, senderId: string): { reply_markup: TT.InlineKeyboardMarkup } {
+function makeScoreButton(senderId: string, q: number): { reply_markup: TT.InlineKeyboardMarkup } {
   return {
     reply_markup: {
       inline_keyboard: [
@@ -116,7 +116,7 @@ async function sendQuestion(ctx: MyContext, progress: s3.Progress) {
   if (!nextQuestion) return onCompleted(ctx, progress);
 
   const q = progress.answers.length + 1;
-  return ctx.editMessageText(nextQuestion, makeScoreButton(progress.type, q, ctx.getSenderId()));
+  return ctx.editMessageText(nextQuestion, makeScoreButton(ctx.getSenderId(), q));
 }
 
 async function onQuestionCallback(ctx: MyContext, q: number, score: number, senderId: string) {
@@ -124,8 +124,6 @@ async function onQuestionCallback(ctx: MyContext, q: number, score: number, send
 
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!progress) return failback(ctx);
-
-  const name = ctx.getSenderName();
 
   const answers = progress.answers.length + 1;
   if (q < answers) return ctx.answerCbQuery('옛날 것이 한 번 더 들어옴');
@@ -239,7 +237,11 @@ async function onCancel(ctx: ContextMessageUpdate) {
 }
 
 function onHelp(ctx: ContextMessageUpdate) {
-  ctx.reply('/start - 시작\n/cancel - 진행중이던 내용 삭제');
+  const messages = [
+    '/start - 시작',
+    '/cancel - 진행중이던 내용 삭제'
+  ]
+  ctx.reply(messages.join('\n'));
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN!)
