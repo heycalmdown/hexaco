@@ -34,6 +34,7 @@ $ node . 2
 # Todos
 
 * [x] AWS Lambda support
+* [ ] 대화방에서 여럿이 대화할 때 처리
 * [ ] Racket support
 * [ ] Crystal support
 * [ ] Go support
