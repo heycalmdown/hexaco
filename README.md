@@ -34,7 +34,9 @@ $ node . 2
 # Todos
 
 * [x] AWS Lambda support
-* [ ] 대화방에서 여럿이 대화할 때 처리
+* [x] 대화방에서 여럿이 대화할 때 처리
+* [ ] 히스토리 저장하기
+* [ ] 취소랑 나중에 버튼 한 단계 숨겨두기
 * [ ] Racket support
 * [ ] Crystal support
 * [ ] Go support

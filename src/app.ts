@@ -37,28 +37,28 @@ const SCORE_STRINGS = [
   '매우 그렇다'
 ];
 
-function makeCallbackData(text: string, type: number, q: number, score: number) {
+function makeCallbackData(text: string, senderId: string, q: number, score: number) {
   return {
     text,
-    callback_data: [COMMANDS.QUESTION, type, q, score].map(String).join('|')
+    callback_data: [COMMANDS.QUESTION, senderId, q, score].map(String).join('|')
   };
 }
 
-function makeScoreButton(type: number, q: number): { reply_markup: TT.InlineKeyboardMarkup } {
+function makeScoreButton(type: number, q: number, senderId: string): { reply_markup: TT.InlineKeyboardMarkup } {
   return {
     reply_markup: {
       inline_keyboard: [
         [
-          makeCallbackData(SCORE_STRINGS[0], type, q, 1),
-          makeCallbackData(SCORE_STRINGS[1], type, q, 2),
+          makeCallbackData(SCORE_STRINGS[0], senderId, q, 1),
+          makeCallbackData(SCORE_STRINGS[1], senderId, q, 2),
         ], [
-          makeCallbackData(SCORE_STRINGS[2], type, q, 3),
-          makeCallbackData(SCORE_STRINGS[3], type, q, 4),
+          makeCallbackData(SCORE_STRINGS[2], senderId, q, 3),
+          makeCallbackData(SCORE_STRINGS[3], senderId, q, 4),
         ], [
-          makeCallbackData(SCORE_STRINGS[4], type, q, 5),
-          makeCallbackData('...나중에...', type, q, 0),
+          makeCallbackData(SCORE_STRINGS[4], senderId, q, 5),
+          makeCallbackData('...나중에...', senderId, q, 0),
         ], [
-          makeCallbackData('취소', type, q, -1)
+          makeCallbackData('취소', senderId, q, -1)
         ]
       ]
     }
@@ -102,35 +102,38 @@ async function onStart(_ctx: ContextMessageUpdate) {
 async function onTypeCallback(ctx: MyContext, type: number) {
   const progress = new s3.Progress(ctx.getSenderId(), type, []);
   await progress.updateProgress();
-  return sendQuestion(ctx, ctx.getSenderName(), progress, type, 1);
+  return sendQuestion(ctx, progress);
 }
 
 async function failback(ctx: MyContext) {
-  await ctx.answerCbQuery('fallback');
+  await ctx.answerCbQuery('failback');
   return ctx.editMessageText('ㅇㅇ 다 없던 걸로 합니다\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
 }
 
-async function sendQuestion(ctx: MyContext, name: string, progress: s3.Progress, type: number, q: number) {
+async function sendQuestion(ctx: MyContext, progress: s3.Progress) {
+  const name = ctx.getSenderName();
   const nextQuestion = question(name, progress);
   if (!nextQuestion) return onCompleted(ctx, progress);
-  return ctx.editMessageText(nextQuestion, makeScoreButton(type, q + 1));
+
+  const q = progress.answers.length + 1;
+  return ctx.editMessageText(nextQuestion, makeScoreButton(progress.type, q, ctx.getSenderId()));
 }
 
-async function onQuestionCallback(ctx: MyContext, type: number, q: number, score: number) {
+async function onQuestionCallback(ctx: MyContext, q: number, score: number, senderId: string) {
+  if (senderId !== ctx.getSenderId()) return ctx.answerCbQuery('남의 것 누르지 마세요');
+
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!progress) return failback(ctx);
 
   const name = ctx.getSenderName();
 
   const answers = progress.answers.length + 1;
-  if (q < answers) {
-    return ctx.answerCbQuery('옛날 것이 한 번 더 들어옴');
-  }
+  if (q < answers) return ctx.answerCbQuery('옛날 것이 한 번 더 들어옴');
 
   if (1 <= score && score <= 5) {
     await progress.addAnswer(score);
     await ctx.answerCbQuery();
-    return sendQuestion(ctx, name, progress, type, q);
+    return sendQuestion(ctx, progress);
   } else if (score === 0) {
     await ctx.answerCbQuery('ㅇㅇ');
     return ctx.editMessageText('ㅇㅇ 나중에 계속...\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
@@ -149,11 +152,11 @@ class MyContext {
 
   getSenderName() {
     if (this.ctx.callbackQuery) {
-      const sender = this.ctx.callbackQuery.message!.chat;
-      return `${sender.last_name} ${sender.first_name}(${sender.username})`;
+      const sender = this.ctx.callbackQuery.from;
+      return `${sender.first_name} ${sender.last_name}(${sender.username})`;
     } else if (this.ctx.from) {
       const sender = this.ctx.from;
-      return `${sender.last_name} ${sender.first_name}(${sender.username})`;
+      return `${sender.first_name} ${sender.last_name}(${sender.username})`;
     }
     return '아무개씨';
   }
@@ -190,22 +193,30 @@ async function onStartCallback(ctx: MyContext, yesno: number) {
   }
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!progress) return failback(ctx);
-  sendQuestion(ctx, ctx.getSenderName(), progress, progress.type, progress.answers.length + 1);
+  sendQuestion(ctx, progress);
 }
 
 async function onCallback(ctx: ContextMessageUpdate) {
   const myContext = new MyContext(ctx);
-  const data = ctx.callbackQuery!.data!.split('|').map(Number);
-  const command = data[0];
+  const data = ctx.callbackQuery!.data!.split('|');
+  const command = +data[0];
   switch (command) {
-    case COMMANDS.START:
-      return onStartCallback(myContext, data[1]);
+    case COMMANDS.START: {
+      const yesno = +data[1];
+      return onStartCallback(myContext, yesno);
+    }
     
-    case COMMANDS.TYPE:
-      return onTypeCallback(myContext, data[1]);
+    case COMMANDS.TYPE: {
+      const type = +data[1];
+      return onTypeCallback(myContext, type);
+    }
 
-    case COMMANDS.QUESTION:
-      return onQuestionCallback(myContext, data[1], data[2], data[3]);
+    case COMMANDS.QUESTION: {
+      const senderId = data[1];
+      const q = +data[2];
+      const score = +data[3];
+      return onQuestionCallback(myContext, q, score, senderId);
+    }
     
     default:
       return failback(myContext);
