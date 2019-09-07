@@ -1,115 +1,224 @@
 import Telegraf, { ContextMessageUpdate } from 'telegraf';
 import * as TT from 'telegram-typings';
+import * as tt from 'telegraf/typings/telegram-types';
 import * as s3 from './s3';
 
-function makeButton(text: string, score: number): TT.InlineKeyboardButton {
-  return { text, callback_data: score.toString() };
+enum COMMANDS {
+  TYPE,
+  QUESTION,
+  START
+};
+
+function makeInlineKeyboard(keyboard: string[], command: COMMANDS) {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        keyboard.map((text, i) => ({ text, callback_data: [command, i + 1].map(String).join('|') }))
+      ]
+    }
+  };
 }
 
 function makeKeyboard(keyboard: string[]) {
   return {
     reply_markup: {
       inline_keyboard: [
-        keyboard.map((text, i) => ({ text, callback_data: (i + 1).toString() }))
+        keyboard.map((text, i) => ({ text, callback_data: [COMMANDS.TYPE, i + 1].map(String).join('|') }))
       ]
     }
   };
 }
 
-function makeScoreButton(): { reply_markup: TT.InlineKeyboardMarkup } {
+const SCORE_STRINGS = [
+  '전혀 그렇지 않다',
+  '그렇지 않은 편이다',
+  '보통이다',
+  '그런 편이다',
+  '매우 그렇다'
+];
+
+function makeCallbackData(text: string, type: number, q: number, score: number) {
+  return {
+    text,
+    callback_data: [COMMANDS.QUESTION, type, q, score].map(String).join('|')
+  };
+}
+
+function makeScoreButton(type: number, q: number): { reply_markup: TT.InlineKeyboardMarkup } {
   return {
     reply_markup: {
       inline_keyboard: [
-        [makeButton('전혀 그렇지 않다', 1), makeButton('그렇지 않은 편이다', 2)],
-        [makeButton('보통이다', 3), makeButton('그런 편이다', 4)],
-        [makeButton('매우 그렇다', 5), makeButton('...나중에...', 0)],
-        [makeButton('취소', -1)]
+        [
+          makeCallbackData(SCORE_STRINGS[0], type, q, 1),
+          makeCallbackData(SCORE_STRINGS[1], type, q, 2),
+        ], [
+          makeCallbackData(SCORE_STRINGS[2], type, q, 3),
+          makeCallbackData(SCORE_STRINGS[3], type, q, 4),
+        ], [
+          makeCallbackData(SCORE_STRINGS[4], type, q, 5),
+          makeCallbackData('...나중에...', type, q, 0),
+        ], [
+          makeCallbackData('취소', type, q, -1)
+        ]
       ]
     }
   };
 }
 
-async function reply(ctx: ContextMessageUpdate, text: string) {
-  await bot.telegram.sendMessage(ctx.message!.from!.id, text);
+async function requestNewStart(ctx: MyContext) {
+  return ctx.reply('어떤 테스트를 진행할까요?', makeKeyboard(['자기 보고용', '타인 보고용']))
 }
 
-async function requestNewStart(ctx: ContextMessageUpdate) {
-  return ctx.reply('선택해주세요', makeKeyboard(['자기 보고용', '타인 보고용']))
-}
+const TYPE_STRINGS = [
+  'EMPTY',
+  '자기 보고용',
+  '타인 보고용'
+];
 
-function question(name: string, progress: s3.Progress): string {
+function question(name: string, progress: s3.Progress): string | null {
+  const q = progress.getNextQuestion();
+  if (!q) return null;
   const type = progress.type === 1 && '자기 보고용' || '타인 보고용';
   const text = [
     `${name}님의 ${type} 테스트입니다.`,
     '',
-    progress.getNextQuestion()
+    q
   ];
   return text.join('\n');
 }
 
-async function onStart(ctx: ContextMessageUpdate) {
-  const previousProgress = await s3.getPreviousProgress(ctx.from!.id.toString());
+async function onStart(_ctx: ContextMessageUpdate) {
+  const ctx = new MyContext(_ctx);
+  const previousProgress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!previousProgress) return requestNewStart(ctx);
 
-  const sender = ctx.from!;
-  const name = `${sender.last_name} ${sender.first_name}(${sender.username})`;
-  return ctx.reply(question(name, previousProgress), makeScoreButton());
+  const name = ctx.getSenderName();
+  const type = TYPE_STRINGS[previousProgress.type];
+  const q = previousProgress.answers.length;
+  const text = `${q}번까지 진행된 ${name}님의 ${type} 테스트가 있습니다.`;
+  return ctx.reply(text, makeInlineKeyboard(['계속 합니다', '그만 합니다'], COMMANDS.START));
 }
 
-async function xxx(ctx: ContextMessageUpdate, name: string, data: number, progress: s3.Progress | null) {
-  console.log(ctx.callbackQuery);
-  if (!progress) {
-    if (data === 1 || data === 2) {
-      const progress = new s3.Progress(ctx.from!.id.toString(), data, []);
-      await progress.updateProgress();
-      return ctx.editMessageText(question(name, progress), makeScoreButton());
-    } else {
-      return ctx.editMessageText('ㅇㅇ 다 없던 걸로 합니다\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
-    }
-  }
+async function onTypeCallback(ctx: MyContext, type: number) {
+  const progress = new s3.Progress(ctx.getSenderId(), type, []);
+  await progress.updateProgress();
+  return sendQuestion(ctx, ctx.getSenderName(), progress, type, 1);
+}
 
-  if (1 <= data && data <= 5) {
-    await progress.addAnswer(data);
-    return ctx.editMessageText(question(name, progress), makeScoreButton());
-  } else if (data === 0) {
-    return ctx.editMessageText('ㅇㅇ 나중에 계속...\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
-  }
-  await progress.cancelProgress();
+async function failback(ctx: MyContext) {
+  await ctx.answerCbQuery('fallback');
   return ctx.editMessageText('ㅇㅇ 다 없던 걸로 합니다\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
 }
 
-async function onMyCallback(ctx: ContextMessageUpdate) {
-  const data = parseInt(ctx.callbackQuery!.data!, 10);
-  const sender = ctx.callbackQuery!.message!.chat;
-  const name = `${sender.last_name} ${sender.first_name}(${sender.username})`;
-  const progress = await s3.getPreviousProgress(ctx.from!.id.toString());
-  return xxx(ctx, name, data, progress);
+async function sendQuestion(ctx: MyContext, name: string, progress: s3.Progress, type: number, q: number) {
+  const nextQuestion = question(name, progress);
+  if (!nextQuestion) return onCompleted(ctx, progress);
+  return ctx.editMessageText(nextQuestion, makeScoreButton(type, q + 1));
 }
 
-async function onCompleted(ctx: ContextMessageUpdate, progress: s3.Progress) {
+async function onQuestionCallback(ctx: MyContext, type: number, q: number, score: number) {
+  const progress = await s3.getPreviousProgress(ctx.getSenderId());
+  if (!progress) return failback(ctx);
+
+  const name = ctx.getSenderName();
+
+  const answers = progress.answers.length + 1;
+  if (q < answers) {
+    return ctx.answerCbQuery('옛날 것이 한 번 더 들어옴');
+  }
+
+  if (1 <= score && score <= 5) {
+    await progress.addAnswer(score);
+    await ctx.answerCbQuery();
+    return sendQuestion(ctx, name, progress, type, q);
+  } else if (score === 0) {
+    await ctx.answerCbQuery('ㅇㅇ');
+    return ctx.editMessageText('ㅇㅇ 나중에 계속...\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
+  }
+  await progress.cancelProgress();
+  return failback(ctx);
+}
+
+class MyContext {
+  constructor(private ctx: ContextMessageUpdate) {
+  }
+
+  getSenderId() {
+    return this.ctx.from!.id.toString();
+  }
+
+  getSenderName() {
+    if (this.ctx.callbackQuery) {
+      const sender = this.ctx.callbackQuery.message!.chat;
+      return `${sender.last_name} ${sender.first_name}(${sender.username})`;
+    } else if (this.ctx.from) {
+      const sender = this.ctx.from;
+      return `${sender.last_name} ${sender.first_name}(${sender.username})`;
+    }
+    return '아무개씨';
+  }
+
+  async reply(text: string, extra?: tt.ExtraReplyMessage) {
+    try {
+      return await this.ctx.reply(text, extra);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async answerCbQuery(text?: string) {
+    try {
+      return await this.ctx.answerCbQuery(text);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async editMessageText(text: string, extra?: tt.ExtraEditMessage) {
+    try {
+      return await this.ctx.editMessageText(text, extra);
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
+async function onStartCallback(ctx: MyContext, yesno: number) {
+  if (yesno === 2) {
+    await ctx.answerCbQuery('ㅇㅇ');
+    return ctx.editMessageText('ㅇㅇ 나중에 계속...\n다시 시작하려면 /start 입력하세요\n이것 저것 궁금하면 /help 하세요');
+  }
+  const progress = await s3.getPreviousProgress(ctx.getSenderId());
+  if (!progress) return failback(ctx);
+  sendQuestion(ctx, ctx.getSenderName(), progress, progress.type, progress.answers.length + 1);
+}
+
+async function onCallback(ctx: ContextMessageUpdate) {
+  const myContext = new MyContext(ctx);
+  const data = ctx.callbackQuery!.data!.split('|').map(Number);
+  const command = data[0];
+  switch (command) {
+    case COMMANDS.START:
+      return onStartCallback(myContext, data[1]);
+    
+    case COMMANDS.TYPE:
+      return onTypeCallback(myContext, data[1]);
+
+    case COMMANDS.QUESTION:
+      return onQuestionCallback(myContext, data[1], data[2], data[3]);
+    
+    default:
+      return failback(myContext);
+  }
+}
+
+async function onCompleted(ctx: MyContext, progress: s3.Progress) {
   const response = ['다 끝났슈'];
   const result = progress.complete() as any;
   for (const key in result) {
-    response.push(`${key} - ${result[key]}`);
+    response.push(`${key} - ${result[key].description} (${result[key].score}/50)`);
   }
-  await ctx.reply(response.join('\n'), { reply_markup: { remove_keyboard: true }})
-}
-
-async function sendQuestion(ctx: ContextMessageUpdate, progress: s3.Progress) {
-    const q = progress.getNextQuestion();
-    if (!q) return onCompleted(ctx, progress);
-
-    return ctx.reply(progress.getNextQuestion(), makeScoreButton());
-}
-
-function makeScoreHandler(score: number) {
-  return async (ctx: ContextMessageUpdate) => {
-    const progress = await s3.getPreviousProgress(ctx.from!.id.toString());
-    if (!progress) return ctx.reply('선택해주세요', makeKeyboard(['자기 보고용', '타인 보고용']));
-
-    await progress.addAnswer(score);
-    await sendQuestion(ctx, progress);
-  };
+  return ctx.editMessageText(response.join('\n'));
 }
 
 async function onCancel(ctx: ContextMessageUpdate) {
@@ -118,25 +227,15 @@ async function onCancel(ctx: ContextMessageUpdate) {
   ctx.reply('ㅇㅇ 취소', { reply_markup: { remove_keyboard: true }})
 }
 
-async function onPause(ctx: ContextMessageUpdate) {
-  ctx.reply('ㅇㅇ 나중에...', { reply_markup: { remove_keyboard: true }});
-}
-
 function onHelp(ctx: ContextMessageUpdate) {
   ctx.reply('/start - 시작\n/cancel - 진행중이던 내용 삭제');
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN!)
 bot.start(onStart);
-bot.help(onHelp);
-bot.on('callback_query', onMyCallback);
-bot.hears('전혀 그렇지 않다', makeScoreHandler(1));
-bot.hears('그렇지 않은 편이다', makeScoreHandler(2));
-bot.hears('보통이다', makeScoreHandler(3));
-bot.hears('그런 편이다', makeScoreHandler(4));
-bot.hears('매우 그렇다', makeScoreHandler(5));
-bot.hears('...나중에...', onPause);
 bot.command('cancel', onCancel);
+bot.help(onHelp);
+bot.on('callback_query', onCallback);
 
 if (process.env.WEBHOOK) {
   bot.telegram.setWebhook(process.env.WEBHOOK + 'secret-path')

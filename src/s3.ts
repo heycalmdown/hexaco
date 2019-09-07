@@ -65,11 +65,11 @@ export class Progress {
             factorScores[i % 6] += score;
         });
         const factorDescriptions = factorScores.map(s => {
-            if (s < 19) return '평균보다 매우 낮음';
-            if (s < 27) return '평균보다 다소 낮음';
-            if (s < 35) return '평균 정도';
-            if (s < 43) return '평균보다 다소 높음';
-            return '평균보다 매우 높음';
+            if (s < 19) return { description: '평균보다 매우 낮음', score: s };
+            if (s < 27) return { description: '평균보다 다소 낮음', score: s };
+            if (s < 35) return { description: '평균 정도', score: s };
+            if (s < 43) return { description: '평균보다 다소 높음', score: s };
+            return { description: '평균보다 매우 높음', score: s };
         });
         return _.zipObject(FACTORS, factorDescriptions);
     }
