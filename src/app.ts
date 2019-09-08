@@ -244,15 +244,19 @@ function onHelp(ctx: ContextMessageUpdate) {
   ctx.reply(messages.join('\n'));
 }
 
-const bot = new Telegraf(process.env.BOT_TOKEN!)
-bot.start(onStart);
-bot.command('cancel', onCancel);
-bot.help(onHelp);
-bot.on('callback_query', onCallback);
+async function main() {
+  const bot = new Telegraf(process.env.BOT_TOKEN!)
+  bot.start(onStart);
+  bot.command('cancel', onCancel);
+  bot.help(onHelp);
+  bot.on('callback_query', onCallback);
 
-if (process.env.WEBHOOK) {
-  bot.telegram.setWebhook(process.env.WEBHOOK + 'secret-path')
+  if (process.env.WEBHOOK) {
+    await bot.telegram.setWebhook(process.env.WEBHOOK + 'secret-path')
+  }
+  bot.startWebhook('/secret-path', null, parseInt(process.env.PORT!, 10) || 3000)
+
+  await bot.launch()
 }
-bot.startWebhook('/secret-path', null, parseInt(process.env.PORT!, 10) || 3000)
 
-bot.launch()
+main();
