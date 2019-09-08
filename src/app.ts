@@ -149,14 +149,9 @@ class MyContext {
   }
 
   getSenderName() {
-    if (this.ctx.callbackQuery) {
-      const sender = this.ctx.callbackQuery.from;
-      return `${sender.first_name} ${sender.last_name}(${sender.username})`;
-    } else if (this.ctx.from) {
-      const sender = this.ctx.from;
-      return `${sender.first_name} ${sender.last_name}(${sender.username})`;
-    }
-    return '아무개씨';
+    const sender = this.ctx.callbackQuery && this.ctx.callbackQuery.from || this.ctx.from;
+    if (!sender) return '아무개씨';
+    return `${sender.first_name} ${sender.last_name}`;
   }
 
   async reply(text: string, extra?: tt.ExtraReplyMessage) {
@@ -251,12 +246,13 @@ async function main() {
   bot.help(onHelp);
   bot.on('callback_query', onCallback);
 
-  if (process.env.WEBHOOK) {
-    await bot.telegram.setWebhook(process.env.WEBHOOK + 'secret-path')
-  }
   bot.startWebhook('/secret-path', null, parseInt(process.env.PORT!, 10) || 3000)
 
   await bot.launch()
+
+  if (process.env.WEBHOOK) {
+    await bot.telegram.setWebhook(process.env.WEBHOOK + 'secret-path')
+  }
 }
 
 main();
