@@ -17,7 +17,7 @@ export class MyContext {
 
   async reply(text: string, extra?: tt.ExtraReplyMessage) {
     try {
-      return await this.ctx.reply(text, extra);
+      return await this.ctx.replyWithHTML(text, extra);
     } catch (e) {
       return false;
     }
