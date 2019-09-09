@@ -10,7 +10,6 @@ async function main() {
 
   await bot.launch({
     webhook: {
-      domain: process.env.WEBHOOK,
       hookPath: '/secret-path',
       port: parseInt(process.env.PORT!, 10)
     }
