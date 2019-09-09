@@ -246,13 +246,13 @@ async function main() {
   bot.help(onHelp);
   bot.on('callback_query', onCallback);
 
-  bot.startWebhook('/secret-path', null, parseInt(process.env.PORT!, 10) || 3000)
-
-  await bot.launch()
-
-  if (process.env.WEBHOOK) {
-    await bot.telegram.setWebhook(process.env.WEBHOOK + 'secret-path')
-  }
+  await bot.launch({
+    webhook: {
+      domain: process.env.WEBHOOK,
+      hookPath: '/secret-path',
+      port: parseInt(process.env.PORT!, 10)
+    }
+  } as any);
 }
 
 main();
