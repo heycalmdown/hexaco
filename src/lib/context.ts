@@ -15,7 +15,7 @@ export class MyContext {
     return `${sender.first_name} ${sender.last_name}`;
   }
 
-  async reply(text: string, extra?: tt.ExtraReplyMessage) {
+  async reply(text: string, extra?: tt.ExtraEditMessage) {
     try {
       return await this.ctx.replyWithHTML(text, extra);
     } catch (e) {
@@ -33,7 +33,7 @@ export class MyContext {
 
   async editMessageText(text: string, extra?: tt.ExtraEditMessage) {
     try {
-      return await this.ctx.editMessageText(text, extra);
+      return await this.ctx.editMessageText(text, {...extra, parse_mode: 'Markdown'});
     } catch (e) {
       return false;
     }

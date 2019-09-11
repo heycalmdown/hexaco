@@ -1,10 +1,10 @@
 import Telegraf from 'telegraf';
-import { onStart, onCancel, onHelp, onCallback } from './lib/handlers';
+import { onStart, onDescription, onHelp, onCallback } from './lib/handlers';
 
 async function main() {
   const bot = new Telegraf(process.env.BOT_TOKEN!)
   bot.start(onStart);
-  bot.command('cancel', onCancel);
+  bot.command('description', onDescription);
   bot.help(onHelp);
   bot.on('callback_query', onCallback);
 
