@@ -13,10 +13,6 @@
 # Todos
 
 * [x] AWS Lambda support
-* [x] 대화방에서 여럿이 대화할 때 처리
-* [x] `/` 누르면 명령 추천하기
-* [ ] 히스토리 저장하기
-* [x] 취소랑 나중에 버튼 한 단계 숨겨두기
 * [ ] Racket support
 * [ ] Crystal support
 * [ ] Go support
