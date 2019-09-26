@@ -12,7 +12,7 @@ export class MyContext {
   getSenderName() {
     const sender = this.ctx.callbackQuery && this.ctx.callbackQuery.from || this.ctx.from;
     if (!sender) return '아무개씨';
-    return `${sender.first_name} ${sender.last_name}`;
+    return [sender.first_name, sender.last_name].filter(Boolean).join(' ');
   }
 
   async reply(text: string, extra?: tt.ExtraEditMessage) {
