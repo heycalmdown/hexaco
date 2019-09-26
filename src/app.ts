@@ -1,17 +1,12 @@
 import Telegraf from 'telegraf';
 import { onStart, onDescription, onHelp, onHistory, onCallback } from './lib/handlers';
 
-enum MODES {
-  BETA,
-  BOT
-}
-
 const CONFIGS: any = {};
-CONFIGS[MODES.BETA] = {
+CONFIGS['beta'] = {
   token_env: 'BETA_TOKEN',
   launch_opts: {}
 };
-CONFIGS[MODES.BOT] = {
+CONFIGS['bot'] = {
   token_env: 'BOT_TOKEN',
   launch_opts: {
     webhook: {
@@ -21,7 +16,7 @@ CONFIGS[MODES.BOT] = {
   }
 };
 
-const CONFIG = CONFIGS[process.env.CONFIG || 'BETA'];
+const CONFIG = CONFIGS[process.env.CONFIG || 'beta'];
 
 async function main() {
   const TOKEN = process.env[CONFIG.token_env]!;
