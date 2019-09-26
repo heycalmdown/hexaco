@@ -25,11 +25,28 @@ function flip(a: number, flag: number) {
     return a;
 }
 
+export async function getObject(owner: string, filename: string) {
+    try {
+        return await s3.getObject({Bucket: 'hexaco-bot', Key: `v1/${owner}/${filename}`}).promise();
+    } catch (e) {
+        if (e.code === 'NoSuchKey') return { Body: null };
+        throw e;
+    }
+}
+
+export async function deleteObject(owner: string, filename: string) {
+    return s3.deleteObject({
+        Bucket: 'hexaco-bot',
+        Key: `v1/${owner}/${filename}`
+    }).promise();
+}
+
 export async function getPreviousProgress(owner: string): Promise<Progress | null> {
     try {
-        const result = await s3.getObject({Bucket: 'hexaco-bot', Key: `v1/${owner}/progress.json`}).promise();
+        const result = await getObject(owner, 'progress.json');
         const text = result.Body!.toString('utf-8');
         const body = JSON.parse(text);
+
         return new Progress(owner, body.type, body.answers);
     } catch (e) {
     }
@@ -51,11 +68,34 @@ export class Progress {
 
     async updateProgress() {
         const body = JSON.stringify({type: this.type, answers: this.answers});
-        await s3.putObject({Bucket: 'hexaco-bot', Key: `v1/${this.owner}/progress.json`, Body: body}).promise();
+        await s3.putObject({
+            Bucket: 'hexaco-bot',
+            Key: `v1/${this.owner}/progress.json`,
+            Body: body
+        }).promise();
     }
 
     async cancelProgress() {
-        await s3.deleteObject({Bucket: 'hexaco-bot', Key: `v1/${this.owner}/progress.json`}).promise();
+        await s3.deleteObject({
+            Bucket: 'hexaco-bot',
+            Key: `v1/${this.owner}/progress.json`
+        }).promise();
+    }
+
+    async saveHistory() {
+        const as = this.type === 1 && 'mine' || 'theirs';
+        const body = JSON.stringify(this.answers);
+        await s3.putObject({
+            Bucket: 'hexaco-bot',
+            Key: `v1/${this.owner}/${as}.json`,
+            Body: body
+        }).promise();
+    }
+
+    async save() {
+        if (this.answers.length !== 60) return;
+        await this.saveHistory();
+        await this.cancelProgress();
     }
 
     complete() {

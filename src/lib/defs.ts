@@ -3,5 +3,6 @@ export enum COMMANDS {
   QUESTION,
   START,
   MORE,
-  DESCRIPTION
+  DESCRIPTION,
+  HISTORY
 };

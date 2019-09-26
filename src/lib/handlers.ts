@@ -23,7 +23,10 @@ async function failback(ctx: MyContext) {
 async function sendQuestion(ctx: MyContext, progress: s3.Progress) {
   const name = ctx.getSenderName();
   const nextQuestion = question(name, progress);
-  if (!nextQuestion) return finish(ctx, progress);
+  if (!nextQuestion) {
+    await progress.save();
+    return finish(['테스트가 모두 끝났습니다', ''], ctx, progress);
+  }
 
   const q = progress.answers.length + 1;
   return ctx.editMessageText(nextQuestion, makeScoreKeyboard(ctx.getSenderId(), q));
@@ -50,8 +53,7 @@ function question(name: string, progress: s3.Progress): string | null {
   return text.join('\n');
 }
 
-async function finish(ctx: MyContext, progress: s3.Progress) {
-  const response = ['테스트가 모두 끝났습니다', ''];
+async function finish(response: string[], ctx: MyContext, progress: s3.Progress) {
   const result = progress.complete() as any;
   for (const key in result) {
     response.push(`${key} - ${result[key].description} (${result[key].score}/50)`);
@@ -84,12 +86,28 @@ async function handleStart(ctx: MyContext, yesno: number) {
   return sendQuestion(ctx, progress);
 }
 
+async function handleHistory(ctx: MyContext, senderId: string, type: number) {
+  if (await ctx.preventHijacking(senderId)) return;
+  if (0 < type) {
+    const filename = type === 1 && 'mine.json' || 'theirs.json';
+    const history = await s3.getObject(senderId, filename);
+    if (!history.Body) return failback(ctx);
+
+    const answers = JSON.parse(history.Body.toString('utf-8'));
+    const progress = new s3.Progress(senderId, type, answers);
+    return finish([], ctx, progress);
+  } else {
+    await s3.deleteObject(senderId, type === -1 && 'mine.json' || 'theirs.json');
+    return ctx.editMessageText('내가 남긴 보고를 삭제했습니다')
+  }
+}
+
 async function handleDescription(ctx: MyContext, offset: number) {
   return ctx.editMessageText(DESCRIPTIONS[offset].join('\n'), makeCallbackKeyboard(DESCRIPTION_KEYBOARD));
 }
 
 async function handleMore(ctx: MyContext, senderId: string, type: number) {
-  if (senderId !== ctx.getSenderId()) return ctx.answerCbQuery('남의 것 누르지 마세요');
+  if (await ctx.preventHijacking(senderId)) return;
 
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!progress) return failback(ctx);
@@ -105,7 +123,8 @@ async function handleMore(ctx: MyContext, senderId: string, type: number) {
 }
 
 async function handleQuestion(ctx: MyContext, q: number, score: number, senderId: string) {
-  if (senderId !== ctx.getSenderId()) return ctx.answerCbQuery('남의 것 누르지 마세요');
+  if (await ctx.preventHijacking(senderId)) return;
+  console.log("??");
 
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!progress) return failback(ctx);
@@ -144,6 +163,38 @@ export async function onDescription(ctx: ContextMessageUpdate) {
                                                   });
 }
 
+export async function onHistory(ctx: ContextMessageUpdate) {
+  const myContext = new MyContext(ctx);
+  const owner = myContext.getSenderId();
+  const [mine, theirs] = await Promise.all([
+    s3.getObject(owner, 'mine.json'),
+    s3.getObject(owner, 'theirs.json')
+  ]);
+  console.log('asdf');
+
+  const buttons = [];
+  if (mine.Body) {
+    console.log('mine');
+    buttons.push([
+      { text: '내가 남긴 자기 보고 보기', data: [COMMANDS.HISTORY, owner, 1]},
+      { text: '자기 보고 삭제', data: [COMMANDS.HISTORY, owner, -1]}
+    ]);
+  }
+  if (theirs.Body) {
+    console.log('theirs');
+    buttons.push([
+      { text: '내가 남긴 타인 보고 보기', data: [COMMANDS.HISTORY, owner, 2]},
+      { text: '타인 보고 삭제', data: [COMMANDS.HISTORY, owner, -2]}
+    ]);
+  }
+  console.log(buttons)
+  if (buttons.length === 0) {
+    return myContext.reply('남겨진 기록이 없습니다');
+  } else {
+    return myContext.reply('남겨진 기록이 있습니다', makeCallbackKeyboard(buttons));
+  }
+}
+
 export async function onCallback(ctx: ContextMessageUpdate) {
   const myContext = new MyContext(ctx);
   const data = ctx.callbackQuery!.data!.split('|');
@@ -177,6 +228,12 @@ export async function onCallback(ctx: ContextMessageUpdate) {
       return handleDescription(myContext, type);
     }
 
+    case COMMANDS.HISTORY: {
+      const senderId = data[1];
+      const type = +data[2];
+      return handleHistory(myContext, senderId, type);
+    }
+    
     default:
       return failback(myContext);
   }
@@ -188,6 +245,7 @@ export function onHelp(ctx: ContextMessageUpdate) {
     '',
     '/start - 시작',
     '/help - 이 내용',
+    '/history - 내가 남긴 지난 보고 확인',
     '/description - 설명 보기'
   ]
   return ctx.replyWithHTML(messages.join('\n'), {disable_web_page_preview: true});

@@ -31,6 +31,14 @@ export class MyContext {
     }
   }
 
+  async preventHijacking(senderId: string) {
+    if (senderId !== this.getSenderId()) {
+      await this.answerCbQuery('남의 것 누르지 마세요');
+      return true;
+    }
+    return false;
+  }
+
   async editMessageText(text: string, extra?: tt.ExtraEditMessage) {
     try {
       return await this.ctx.editMessageText(text, {...extra, parse_mode: 'Markdown'});
