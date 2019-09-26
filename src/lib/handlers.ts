@@ -69,15 +69,17 @@ async function handleType(ctx: MyContext, type: number) {
 }
 
 async function handleStart(ctx: MyContext, yesno: number) {
+  const progress = await s3.getPreviousProgress(ctx.getSenderId());
+  if (!progress) return failback(ctx);
+
   if (yesno === 2) {
+    await progress.cancelProgress();
     return ctx.editMessageText([
       '기존 자료를 삭제했습니다',
       '다시 시작하려면 /start 입력하세요',
       '이것 저것 궁금하면 /help 하세요'
     ].join('\n'));
   }
-  const progress = await s3.getPreviousProgress(ctx.getSenderId());
-  if (!progress) return failback(ctx);
 
   return sendQuestion(ctx, progress);
 }
@@ -174,7 +176,7 @@ export async function onCallback(ctx: ContextMessageUpdate) {
       const type = +data[1];
       return handleDescription(myContext, type);
     }
-    
+
     default:
       return failback(myContext);
   }
