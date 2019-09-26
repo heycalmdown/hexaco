@@ -124,7 +124,6 @@ async function handleMore(ctx: MyContext, senderId: string, type: number) {
 
 async function handleQuestion(ctx: MyContext, q: number, score: number, senderId: string) {
   if (await ctx.preventHijacking(senderId)) return;
-  console.log("??");
 
   const progress = await s3.getPreviousProgress(ctx.getSenderId());
   if (!progress) return failback(ctx);
@@ -170,24 +169,20 @@ export async function onHistory(ctx: ContextMessageUpdate) {
     s3.getObject(owner, 'mine.json'),
     s3.getObject(owner, 'theirs.json')
   ]);
-  console.log('asdf');
 
   const buttons = [];
   if (mine.Body) {
-    console.log('mine');
     buttons.push([
       { text: '내가 남긴 자기 보고 보기', data: [COMMANDS.HISTORY, owner, 1]},
       { text: '자기 보고 삭제', data: [COMMANDS.HISTORY, owner, -1]}
     ]);
   }
   if (theirs.Body) {
-    console.log('theirs');
     buttons.push([
       { text: '내가 남긴 타인 보고 보기', data: [COMMANDS.HISTORY, owner, 2]},
       { text: '타인 보고 삭제', data: [COMMANDS.HISTORY, owner, -2]}
     ]);
   }
-  console.log(buttons)
   if (buttons.length === 0) {
     return myContext.reply('남겨진 기록이 없습니다');
   } else {
