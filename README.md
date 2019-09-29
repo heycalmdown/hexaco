@@ -1,5 +1,7 @@
 # HEXACO
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/heycalmdown/hexaco.svg)](https://greenkeeper.io/)
+
 책 `H 팩터의 심리학` 중 단축형 HEXACO 성격 검사지 
 
 * Telegram 지원
