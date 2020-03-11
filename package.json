@@ -20,7 +20,7 @@
   "homepage": "https://github.com/heycalmdown/hexaco#readme",
   "dependencies": {
     "@types/node": "^13.1.0",
-    "aws-sdk": "^2.517.0",
+    "aws-sdk": "^2.638.0",
     "lodash": "^4.17.15",
     "telegraf": "^3.32.0"
   },
